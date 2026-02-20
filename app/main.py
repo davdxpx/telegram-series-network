@@ -18,7 +18,7 @@ from app.webapp.routes import router as webapp_router
 from app.handlers import commands, management, upload, search
 
 # --- Bot Setup ---
-bot = Bot(token=settings.BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+# Initialize Dispatcher globally (routers need to be attached)
 dp = Dispatcher()
 
 # Include Bot Routers
@@ -38,23 +38,36 @@ async def init_db():
 async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting up...")
+
+    # Initialize Database
     await init_db()
 
-    # Start Bot Polling in Background
-    # In production, recommend running bot and webapp as separate services or using a proper supervisor.
-    # For self-hosted/docker-compose simplicity, we run them together.
-    polling_task = asyncio.create_task(dp.start_polling(bot))
-
-    yield
-
-    # Shutdown
-    logger.info("Shutting down...")
-    await bot.session.close()
-    polling_task.cancel()
+    # Initialize Bot here (inside async context) to avoid "Token is invalid" error at module import time
+    # This allows the app to start even if the token is bad (it will just fail to poll, but not crash the whole container immediately if we handle it)
     try:
-        await polling_task
-    except asyncio.CancelledError:
-        pass
+        bot = Bot(token=settings.BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+        logger.info("Bot initialized successfully")
+
+        # Start Bot Polling in Background
+        # In production, recommend running bot and webapp as separate services or using a proper supervisor.
+        # For self-hosted/docker-compose simplicity, we run them together.
+        polling_task = asyncio.create_task(dp.start_polling(bot))
+
+        yield
+
+        # Shutdown
+        logger.info("Shutting down...")
+        await bot.session.close()
+        polling_task.cancel()
+        try:
+            await polling_task
+        except asyncio.CancelledError:
+            pass
+
+    except Exception as e:
+        logger.error(f"Failed to start bot: {e}")
+        # Yielding even if bot fails allows FastAPI to still run (e.g. for health checks or static files)
+        yield
 
 # --- FastAPI App ---
 app = FastAPI(title="TSN Bot API", lifespan=lifespan)
