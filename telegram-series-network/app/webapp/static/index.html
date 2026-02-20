@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSN Player</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gray-900 text-white font-sans">
+    <div id="app" class="container mx-auto p-4">
+        <!-- Loading -->
+        <div id="loading" class="text-center py-10">
+            <p class="text-xl animate-pulse">Loading Library...</p>
+        </div>
+
+        <!-- Network List -->
+        <div id="network-view" class="hidden">
+            <h1 class="text-2xl font-bold mb-4">Your Networks</h1>
+            <div id="network-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Networks injected here -->
+            </div>
+        </div>
+
+        <!-- Series View -->
+        <div id="series-view" class="hidden">
+            <button onclick="showNetworks()" class="mb-4 text-blue-400">← Back to Networks</button>
+            <h1 id="network-title" class="text-2xl font-bold mb-4">Library</h1>
+            <div id="series-list" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <!-- Series injected here -->
+            </div>
+        </div>
+
+        <!-- Episode View -->
+        <div id="episode-view" class="hidden">
+            <button onclick="showSeries()" class="mb-4 text-blue-400">← Back to Series</button>
+            <h1 id="series-title" class="text-2xl font-bold mb-2">Series Title</h1>
+            <div id="episode-list" class="space-y-2">
+                <!-- Episodes injected here -->
+            </div>
+        </div>
+
+        <!-- Player View -->
+        <div id="player-view" class="hidden">
+            <button onclick="showEpisodes()" class="mb-4 text-blue-400">← Back</button>
+            <video id="video-player" controls class="w-full rounded-lg shadow-lg" controlsList="nodownload">
+                <source src="" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+            <h2 id="playing-title" class="mt-4 text-xl font-semibold">Episode Title</h2>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: tsn_bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - mongo
+      - redis
+    ports:
+      - "8000:8000" # Expose FastAPI port
+    volumes:
+      - ./app:/app/app
+      - ./bot.log:/app/bot.log
+
+  mongo:
+    image: mongo:latest
+    container_name: tsn_mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017" # Exposed for local tool access if needed
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:alpine
+    container_name: tsn_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  mongo_data:
+  redis_data:
