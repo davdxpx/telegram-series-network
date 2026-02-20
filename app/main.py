@@ -59,8 +59,14 @@ async def lifespan(app: FastAPI):
         bot_info = await bot.get_me()
         logger.success(f"✅ Bot Connected: @{bot_info.username} (ID: {bot_info.id})")
 
+        # CRITICAL: Delete any existing webhook to ensure polling works
+        logger.info("Checking for existing webhooks...")
+        await bot.delete_webhook(drop_pending_updates=True)
+        logger.info("Webhook deleted. Starting polling...")
+
         # Start Polling
         logger.info("📡 Starting Polling Loop...")
+        # allowed_updates=["message", "edited_message", "channel_post", "edited_channel_post", "inline_query", "callback_query"]
         polling_task = asyncio.create_task(dp.start_polling(bot))
 
         # Add a done callback to catch silent failures in the polling loop
