@@ -2,6 +2,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Set environment variables
+# PYTHONUNBUFFERED=1 ensures logs are sent to stdout immediately without buffering
+ENV PYTHONUNBUFFERED=1
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
@@ -17,5 +21,6 @@ COPY . .
 # Expose port for FastAPI
 EXPOSE 8000
 
-# Start command (runs main.py which starts both Bot and WebApp)
-CMD ["python", "-m", "app.main"]
+# Start command: Use Uvicorn to run the FastAPI application
+# This triggers the 'lifespan' event which starts the bot polling loop
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
