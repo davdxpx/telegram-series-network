@@ -29,45 +29,73 @@ dp.include_router(search.router)
 
 # --- Database Setup ---
 async def init_db():
-    client = AsyncIOMotorClient(settings.MONGO_URI)
-    await init_beanie(database=client.get_default_database(), document_models=[User, Network, Series, Season, Episode])
-    logger.info("MongoDB Initialized")
+    try:
+        client = AsyncIOMotorClient(settings.MONGO_URI)
+        await init_beanie(database=client.get_default_database(), document_models=[User, Network, Series, Season, Episode])
+        logger.info("MongoDB Connection & Beanie Initialized Successfully")
+    except Exception as e:
+        logger.critical(f"Failed to initialize MongoDB: {e}")
+        raise e
 
 # --- Lifespan ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    logger.info("Starting up...")
+    logger.info("🚀 Starting TSN Bot Application...")
 
     # Initialize Database
     await init_db()
 
-    # Initialize Bot here (inside async context) to avoid "Token is invalid" error at module import time
-    # This allows the app to start even if the token is bad (it will just fail to poll, but not crash the whole container immediately if we handle it)
-    try:
-        bot = Bot(token=settings.BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-        logger.info("Bot initialized successfully")
+    # Initialize Bot
+    polling_task = None
+    bot = None
 
-        # Start Bot Polling in Background
-        # In production, recommend running bot and webapp as separate services or using a proper supervisor.
-        # For self-hosted/docker-compose simplicity, we run them together.
+    try:
+        # Initialize Bot instance
+        logger.info(f"Initializing Bot with token prefix: {settings.BOT_TOKEN[:5]}...")
+        bot = Bot(token=settings.BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+
+        # Verify Token by calling get_me()
+        bot_info = await bot.get_me()
+        logger.success(f"✅ Bot Connected: @{bot_info.username} (ID: {bot_info.id})")
+
+        # Start Polling
+        logger.info("📡 Starting Polling Loop...")
         polling_task = asyncio.create_task(dp.start_polling(bot))
 
-        yield
+        # Add a done callback to catch silent failures in the polling loop
+        def handle_polling_error(task):
+            try:
+                task.result()
+            except asyncio.CancelledError:
+                pass # Task cancellation is normal on shutdown
+            except Exception as e:
+                logger.exception(f"❌ Polling Task Crashed: {e}")
 
-        # Shutdown
-        logger.info("Shutting down...")
-        await bot.session.close()
-        polling_task.cancel()
-        try:
-            await polling_task
-        except asyncio.CancelledError:
-            pass
+        polling_task.add_done_callback(handle_polling_error)
+
+        yield
 
     except Exception as e:
-        logger.error(f"Failed to start bot: {e}")
-        # Yielding even if bot fails allows FastAPI to still run (e.g. for health checks or static files)
+        logger.critical(f"❌ Critical Startup Error: {e}")
+        # We yield to allow the container to stay alive (maybe for debug),
+        # but functionality will be broken.
         yield
+
+    finally:
+        # Shutdown
+        logger.info("🛑 Shutting down...")
+        if bot and bot.session:
+            await bot.session.close()
+            logger.info("Bot session closed.")
+
+        if polling_task:
+            polling_task.cancel()
+            try:
+                await polling_task
+            except asyncio.CancelledError:
+                pass
+            logger.info("Polling task cancelled.")
 
 # --- FastAPI App ---
 app = FastAPI(title="TSN Bot API", lifespan=lifespan)
@@ -80,4 +108,4 @@ app.include_router(webapp_router)
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok"}
+    return {"status": "ok", "service": "TSN Bot"}

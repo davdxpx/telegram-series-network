@@ -10,25 +10,34 @@ router = Router()
 
 @router.message(CommandStart())
 async def cmd_start(message: Message):
-    user = await User.find_one(User.telegram_id == message.from_user.id)
-    if not user:
-        user = User(
-            telegram_id=message.from_user.id,
-            username=message.from_user.username,
-            full_name=message.from_user.full_name
-        )
-        await user.create()
-        logger.info(f"New user created: {user.telegram_id}")
+    logger.info(f"📝 Received /start from User ID: {message.from_user.id} (@{message.from_user.username})")
 
-    await message.answer(
-        "👋 Welcome to **Telegram Series Network (TSN)**!\n\n"
-        "I can help you build your own private streaming network.\n"
-        "Use the menu below to get started.",
-        reply_markup=start_keyboard()
-    )
+    try:
+        user = await User.find_one(User.telegram_id == message.from_user.id)
+        if not user:
+            logger.info(f"Creating new user entry for {message.from_user.id}")
+            user = User(
+                telegram_id=message.from_user.id,
+                username=message.from_user.username,
+                full_name=message.from_user.full_name
+            )
+            await user.create()
+            logger.success(f"New user created: {user.telegram_id}")
+
+        await message.answer(
+            "👋 Welcome to **Telegram Series Network (TSN)**!\n\n"
+            "I can help you build your own private streaming network.\n"
+            "Use the menu below to get started.",
+            reply_markup=start_keyboard()
+        )
+        logger.info("Sent welcome message")
+    except Exception as e:
+        logger.error(f"Error in /start handler: {e}")
+        await message.answer("⚠️ An internal error occurred. Please check logs.")
 
 @router.message(Command("help"))
 async def cmd_help(message: Message):
+    logger.info(f"Received /help from {message.from_user.id}")
     text = (
         "📚 **TSN Bot Help**\n\n"
         "/start - Main menu\n"
