@@ -31,7 +31,15 @@ dp.include_router(search.router)
 async def init_db():
     try:
         client = AsyncIOMotorClient(settings.MONGO_URI)
-        await init_beanie(database=client.get_default_database(), document_models=[User, Network, Series, Season, Episode])
+        # Use explicit database name 'tsn_bot' if none is provided in the URI
+        # This fixes "No default database name defined" error with some Atlas URIs
+        try:
+            db = client.get_default_database()
+        except Exception:
+            logger.warning("No default database in URI, using 'tsn_bot'")
+            db = client.get_database("tsn_bot")
+
+        await init_beanie(database=db, document_models=[User, Network, Series, Season, Episode])
         logger.info("MongoDB Connection & Beanie Initialized Successfully")
     except Exception as e:
         logger.critical(f"Failed to initialize MongoDB: {e}")
