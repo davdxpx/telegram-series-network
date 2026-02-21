@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSN - Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex">
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-gray-800 border-r border-gray-700 p-4 hidden md:block">
+        <h1 class="text-2xl font-bold text-red-500 mb-8">TSN Admin</h1>
+        <nav class="space-y-2">
+            <a href="#" @click="view = 'dashboard'" :class="{'bg-gray-700': view === 'dashboard'}" class="block p-2 rounded hover:bg-gray-700">Dashboard</a>
+            <a href="#" @click="view = 'bundles'" :class="{'bg-gray-700': view === 'bundles'}" class="block p-2 rounded hover:bg-gray-700">Bundles</a>
+            <a href="#" @click="view = 'channels'" :class="{'bg-gray-700': view === 'channels'}" class="block p-2 rounded hover:bg-gray-700">Storage Channels</a>
+            <a href="#" @click="view = 'batch'" :class="{'bg-gray-700': view === 'batch'}" class="block p-2 rounded hover:bg-gray-700">Batch Import</a>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 p-6 overflow-y-auto">
+
+        <!-- Mobile Header -->
+        <div class="md:hidden flex justify-between items-center mb-6">
+             <h1 class="text-xl font-bold text-red-500">TSN Admin</h1>
+             <button @click="toggleMenu" class="text-gray-400">Menu</button>
+        </div>
+
+        <!-- Dashboard -->
+        <div v-if="view === 'dashboard'">
+            <h2 class="text-2xl font-bold mb-6">Overview</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-gray-800 p-6 rounded-lg shadow">
+                    <div class="text-gray-400 text-sm">Total Bundles</div>
+                    <div class="text-3xl font-bold">{{ stats.bundles || 0 }}</div>
+                </div>
+                <div class="bg-gray-800 p-6 rounded-lg shadow">
+                    <div class="text-gray-400 text-sm">Active Channels</div>
+                    <div class="text-3xl font-bold">{{ stats.channels || 0 }}</div>
+                </div>
+                <div class="bg-gray-800 p-6 rounded-lg shadow">
+                    <div class="text-gray-400 text-sm">Total Episodes</div>
+                    <div class="text-3xl font-bold">{{ stats.episodes || 0 }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bundles Management -->
+        <div v-if="view === 'bundles'">
+            <div class="flex justify-between mb-6">
+                <h2 class="text-2xl font-bold">Bundles</h2>
+                <button @click="showCreateBundleModal = true" class="bg-red-600 px-4 py-2 rounded hover:bg-red-700">New Bundle</button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div v-for="bundle in bundles" :key="bundle.id" class="bg-gray-800 p-4 rounded flex justify-between items-center">
+                    <div>
+                        <div class="font-bold">{{ bundle.name }}</div>
+                        <div class="text-sm text-gray-400">{{ bundle.series_count }} Series</div>
+                    </div>
+                    <button class="text-red-400 hover:text-red-300">Edit</button>
+                </div>
+            </div>
+
+             <!-- Simple Create Bundle Modal -->
+            <div v-if="showCreateBundleModal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+                <div class="bg-gray-800 p-6 rounded-lg w-96">
+                    <h3 class="text-lg font-bold mb-4">Create New Bundle</h3>
+                    <input v-model="newBundle.name" placeholder="Bundle Name" class="w-full bg-gray-700 p-2 rounded mb-3 border border-gray-600">
+                    <input v-model="newBundle.slug" placeholder="Slug (e.g. sci-fi)" class="w-full bg-gray-700 p-2 rounded mb-4 border border-gray-600">
+                    <div class="flex justify-end space-x-2">
+                        <button @click="showCreateBundleModal = false" class="px-4 py-2 bg-gray-600 rounded">Cancel</button>
+                        <button @click="createBundle" class="px-4 py-2 bg-red-600 rounded">Create</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Channels Management -->
+        <div v-if="view === 'channels'">
+            <div class="flex justify-between mb-6">
+                <h2 class="text-2xl font-bold">Storage Channels</h2>
+                <button @click="showAddChannelModal = true" class="bg-green-600 px-4 py-2 rounded hover:bg-green-700">Add Channel</button>
+            </div>
+
+            <div class="space-y-4">
+                <div v-for="channel in channels" :key="channel.channel_id" class="bg-gray-800 p-4 rounded flex justify-between items-center">
+                    <div>
+                        <div class="font-bold">{{ channel.name }}</div>
+                        <div class="text-xs text-gray-400">ID: {{ channel.channel_id }}</div>
+                    </div>
+                    <button @click="deleteChannel(channel.channel_id)" class="text-red-400 hover:text-red-300 text-sm">Remove</button>
+                </div>
+                <div v-if="channels.length === 0" class="text-center text-gray-500 py-8">
+                    No storage channels added yet.
+                </div>
+            </div>
+
+            <!-- Add Channel Modal -->
+            <div v-if="showAddChannelModal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+                <div class="bg-gray-800 p-6 rounded-lg w-96">
+                    <h3 class="text-lg font-bold mb-4">Add Storage Channel</h3>
+                    <p class="text-xs text-gray-400 mb-3">Add the bot to the channel first!</p>
+                    <input v-model="newChannel.channel_id" type="number" placeholder="Channel ID (e.g. -100123...)" class="w-full bg-gray-700 p-2 rounded mb-3 border border-gray-600">
+                    <input v-model="newChannel.name" placeholder="Channel Name" class="w-full bg-gray-700 p-2 rounded mb-4 border border-gray-600">
+                    <div class="flex justify-end space-x-2">
+                        <button @click="showAddChannelModal = false" class="px-4 py-2 bg-gray-600 rounded">Cancel</button>
+                        <button @click="addChannel" class="px-4 py-2 bg-green-600 rounded">Add</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Batch Import -->
+        <div v-if="view === 'batch'">
+            <h2 class="text-2xl font-bold mb-6">Batch Import Tool</h2>
+
+            <div class="bg-gray-800 p-6 rounded-lg max-w-xl">
+                <div class="mb-4">
+                    <label class="block text-sm text-gray-400 mb-2">1. Select Storage Channel</label>
+                    <select v-model="batch.channel" class="w-full bg-gray-700 p-2 rounded border border-gray-600">
+                        <option v-for="ch in channels" :value="ch.channel_id">{{ ch.name }}</option>
+                    </select>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm text-gray-400 mb-2">2. Select Target Bundle</label>
+                    <select v-model="batch.bundle" class="w-full bg-gray-700 p-2 rounded border border-gray-600">
+                         <option v-for="b in bundles" :value="b._id">{{ b.name }}</option>
+                    </select>
+                </div>
+
+                <button @click="startBatch" class="w-full bg-green-600 py-3 rounded font-bold hover:bg-green-500">
+                    Start Batch Import
+                </button>
+                <p class="mt-4 text-xs text-gray-400">
+                    Once started, upload files to the selected channel. The bot will automatically process them.
+                    Click "Finish" here when done.
+                </p>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        const { createApp } = Vue;
+        const tg = window.Telegram.WebApp;
+
+        createApp({
+            data() {
+                return {
+                    view: 'dashboard',
+                    stats: { bundles: 0, channels: 0, episodes: 0 },
+                    bundles: [],
+                    channels: [],
+                    batch: { channel: null, bundle: null },
+
+                    showCreateBundleModal: false,
+                    newBundle: { name: '', slug: '' },
+
+                    showAddChannelModal: false,
+                    newChannel: { channel_id: '', name: '' },
+
+                    headers: {}
+                }
+            },
+            async mounted() {
+                tg.expand();
+                // Send initData in headers for auth
+                this.headers = {
+                    'Content-Type': 'application/json',
+                    'X-Telegram-Init-Data': tg.initData
+                };
+                await this.loadData();
+            },
+            methods: {
+                async loadData() {
+                    this.bundles = await (await fetch('/webapp/bundles', {headers: this.headers})).json();
+                    this.channels = await (await fetch('/webapp/channels', {headers: this.headers})).json();
+                    this.stats.bundles = this.bundles.length;
+                    this.stats.channels = this.channels.length;
+                },
+                async createBundle() {
+                    const res = await fetch('/webapp/bundles', {
+                        method: 'POST',
+                        headers: this.headers,
+                        body: JSON.stringify(this.newBundle)
+                    });
+                    if(res.ok) {
+                        this.showCreateBundleModal = false;
+                        this.newBundle = {name: '', slug: ''};
+                        await this.loadData();
+                    } else {
+                        alert("Error creating bundle");
+                    }
+                },
+                async addChannel() {
+                     const res = await fetch('/webapp/channels', {
+                        method: 'POST',
+                        headers: this.headers,
+                        body: JSON.stringify({
+                            channel_id: parseInt(this.newChannel.channel_id),
+                            name: this.newChannel.name
+                        })
+                    });
+                    if(res.ok) {
+                        this.showAddChannelModal = false;
+                        this.newChannel = {channel_id: '', name: ''};
+                        await this.loadData();
+                    } else {
+                        alert("Error adding channel (ID might be duplicate or auth failed)");
+                    }
+                },
+                async deleteChannel(id) {
+                    if(!confirm("Remove this channel? Data won't be deleted but import will stop.")) return;
+                    await fetch(`/webapp/channels/${id}`, { method: 'DELETE', headers: this.headers });
+                    await this.loadData();
+                },
+                async startBatch() {
+                    if(!this.batch.channel || !this.batch.bundle) return alert("Select both options!");
+
+                    try {
+                        const res = await fetch('/webapp/batch/start', {
+                            method: 'POST',
+                            headers: this.headers,
+                            body: JSON.stringify({
+                                channel_id: this.batch.channel,
+                                bundle_id: this.batch.bundle
+                            })
+                        });
+
+                        if(res.ok) {
+                            alert("✅ Batch Started! Upload files to the channel now.");
+                        } else {
+                            alert("❌ Error starting batch.");
+                        }
+                    } catch(e) {
+                        alert("Error: " + e);
+                    }
+                },
+                toggleMenu() {
+                    // Mobile menu toggle logic
+                }
+            }
+        }).mount('body');
+    </script>
+</body>
+</html>

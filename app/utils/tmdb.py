@@ -1,50 +1,94 @@
-import aiohttp
-from typing import Optional, Dict, Any, List
+from tmdbv3api import TMDb, TV, Movie, Season, Episode
+from typing import Optional, Dict, List
+import logging
 from app.config import settings
-from app.utils.logging import logger
 
-class AsyncTMDB:
-    BASE_URL = "https://api.themoviedb.org/3"
-    IMAGE_BASE_URL = "https://image.tmdb.org/t/p/original"
+logger = logging.getLogger(__name__)
 
+class TMDBClient:
+    """
+    Wrapper around the TMDB API to fetch show metadata.
+    """
     def __init__(self, api_key: str):
-        self.api_key = api_key
+        self.tmdb = TMDb()
+        self.tmdb.api_key = api_key
+        self.tmdb.language = "en"
+        self.tv_api = TV()
+        self.movie_api = Movie()
+        self.season_api = Season()
+        self.episode_api = Episode()
 
-    async def _request(self, endpoint: str, params: Dict[str, Any] = {}) -> Dict[str, Any]:
-        params["api_key"] = self.api_key
-        params["language"] = "en-US" # Default to English
+    def search_tv_show(self, query: str) -> List[Dict]:
+        """
+        Search for a TV show by name.
+        """
+        try:
+            results = self.tv_api.search(query)
+            return [
+                {
+                    "id": show.id,
+                    "name": show.name,
+                    "overview": getattr(show, 'overview', ''),
+                    "poster_path": getattr(show, 'poster_path', None),
+                    "backdrop_path": getattr(show, 'backdrop_path', None),
+                    "first_air_date": getattr(show, 'first_air_date', None),
+                    "vote_average": getattr(show, 'vote_average', 0.0)
+                }
+                for show in results
+            ]
+        except Exception as e:
+            logger.error(f"Error searching TMDB for '{query}': {e}")
+            return []
 
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.get(f"{self.BASE_URL}{endpoint}", params=params) as response:
-                    if response.status != 200:
-                        logger.error(f"TMDB Error {response.status}: {await response.text()}")
-                        return {}
-                    return await response.json()
-            except Exception as e:
-                logger.error(f"TMDB Request Failed: {e}")
-                return {}
-
-    async def search_multi(self, query: str) -> List[Dict[str, Any]]:
-        """Search for movies and TV shows."""
-        data = await self._request("/search/multi", {"query": query})
-        return data.get("results", [])
-
-    async def get_tv_show(self, tmdb_id: int) -> Dict[str, Any]:
-        return await self._request(f"/tv/{tmdb_id}")
-
-    async def get_season(self, tv_id: int, season_number: int) -> Dict[str, Any]:
-        return await self._request(f"/tv/{tv_id}/season/{season_number}")
-
-    async def get_episode(self, tv_id: int, season_number: int, episode_number: int) -> Dict[str, Any]:
-        return await self._request(f"/tv/{tv_id}/season/{season_number}/episode/{episode_number}")
-
-    async def get_movie(self, tmdb_id: int) -> Dict[str, Any]:
-        return await self._request(f"/movie/{tmdb_id}")
-
-    def get_image_url(self, path: Optional[str]) -> Optional[str]:
-        if not path:
+    def get_show_details(self, tmdb_id: int) -> Optional[Dict]:
+        """
+        Get detailed info about a show.
+        """
+        try:
+            show = self.tv_api.details(tmdb_id)
+            return {
+                "id": show.id,
+                "name": show.name,
+                "overview": show.overview,
+                "poster_path": show.poster_path,
+                "backdrop_path": show.backdrop_path,
+                "first_air_date": show.first_air_date,
+                "vote_average": show.vote_average,
+                "number_of_seasons": show.number_of_seasons,
+                "status": show.status
+            }
+        except Exception as e:
+            logger.error(f"Error getting details for ID {tmdb_id}: {e}")
             return None
-        return f"{self.IMAGE_BASE_URL}{path}"
 
-tmdb_client = AsyncTMDB(settings.TMDB_API_KEY)
+    def get_season_details(self, tmdb_id: int, season_number: int) -> Optional[Dict]:
+        """
+        Get info about a specific season.
+        """
+        try:
+            season = self.season_api.details(tmdb_id, season_number)
+            return {
+                "id": season.id,
+                "name": season.name,
+                "overview": season.overview,
+                "poster_path": season.poster_path,
+                "air_date": season.air_date,
+                "season_number": season.season_number,
+                "episodes": [
+                    {
+                        "episode_number": ep.episode_number,
+                        "name": ep.name,
+                        "overview": ep.overview,
+                        "still_path": ep.still_path,
+                        "air_date": ep.air_date,
+                        "runtime": getattr(ep, 'runtime', None)
+                    }
+                    for ep in season.episodes
+                ]
+            }
+        except Exception as e:
+            logger.error(f"Error getting season {season_number} for show {tmdb_id}: {e}")
+            return None
+
+# Singleton instance
+tmdb_client = TMDBClient(settings.TMDB_API_KEY)
