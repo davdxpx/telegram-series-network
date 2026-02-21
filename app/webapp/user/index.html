@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSN - User</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { background-color: #1a202c; color: white; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div id="app" class="p-4">
+
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-red-500">TSN</h1>
+            <div class="text-sm text-gray-400" v-if="user">Hi, {{ user.first_name }}</div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="flex space-x-4 mb-6 border-b border-gray-700 pb-2 overflow-x-auto">
+            <button @click="view = 'home'" :class="{'text-red-500 border-b-2 border-red-500': view === 'home'}" class="pb-1">Home</button>
+            <button @click="view = 'bundles'" :class="{'text-red-500 border-b-2 border-red-500': view === 'bundles'}" class="pb-1">Bundles</button>
+            <button @click="view = 'search'" :class="{'text-red-500 border-b-2 border-red-500': view === 'search'}" class="pb-1">Search</button>
+        </nav>
+
+        <!-- HOME VIEW -->
+        <div v-if="view === 'home'">
+            <!-- Continue Watching -->
+            <div v-if="continueWatching.length > 0" class="mb-6">
+                <h2 class="text-lg font-semibold mb-3">Continue Watching</h2>
+                <div class="flex overflow-x-auto space-x-4 pb-2">
+                    <div v-for="item in continueWatching" :key="item.episode._id" @click="playVideo(item.episode, item.progress)" class="flex-shrink-0 w-40 relative cursor-pointer">
+                        <img :src="getPosterUrl(item.episode.still_path)" class="w-full h-24 object-cover rounded-lg">
+                        <div class="absolute bottom-0 left-0 right-0 h-1 bg-gray-700 rounded-b-lg">
+                             <div class="h-full bg-red-600" :style="{width: (item.progress * 100) + '%'}"></div>
+                        </div>
+                        <div class="mt-1 text-xs truncate">{{ item.episode.name }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <h2 class="text-lg font-semibold mb-3">Featured Bundles</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div v-for="bundle in bundles" :key="bundle._id" @click="openBundle(bundle)" class="bg-gray-800 rounded-lg overflow-hidden cursor-pointer shadow-lg hover:bg-gray-700 transition">
+                    <img :src="bundle.cover_image || 'https://via.placeholder.com/300x450?text=No+Cover'" class="w-full h-40 object-cover">
+                    <div class="p-2">
+                        <div class="font-bold text-sm truncate">{{ bundle.name }}</div>
+                        <div class="text-xs text-gray-500">{{ bundle.series_count }} Series</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEARCH VIEW -->
+        <div v-if="view === 'search'">
+            <div class="mb-4">
+                <input v-model="searchQuery" @keyup.enter="performSearch" type="text" placeholder="Search TV Shows..." class="w-full bg-gray-800 p-3 rounded-lg border border-gray-700 focus:border-red-500 outline-none">
+            </div>
+
+            <div v-if="searchResults.length > 0" class="grid grid-cols-3 gap-3">
+                 <div v-for="show in searchResults" :key="show._id" @click="openSeries(show)" class="cursor-pointer">
+                    <img :src="getPosterUrl(show.poster_path)" class="rounded-lg w-full h-auto">
+                    <div class="text-xs mt-1 truncate">{{ show.name }}</div>
+                </div>
+            </div>
+            <div v-else-if="searchQuery && searchResults.length === 0" class="text-center text-gray-500 mt-8">
+                No results found.
+            </div>
+        </div>
+
+        <!-- BUNDLE DETAIL / SERIES LIST -->
+        <div v-if="view === 'bundle_detail'">
+            <button @click="view = 'home'" class="mb-4 text-sm text-gray-400">&larr; Back</button>
+            <h2 class="text-xl font-bold mb-4">{{ currentBundle.name }}</h2>
+            <div class="grid grid-cols-3 gap-3">
+                <div v-for="show in seriesList" :key="show._id" @click="openSeries(show)" class="cursor-pointer">
+                    <img :src="getPosterUrl(show.poster_path)" class="rounded-lg w-full h-auto">
+                    <div class="text-xs mt-1 truncate">{{ show.name }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- EPISODE LIST -->
+        <div v-if="view === 'series_detail'">
+            <button @click="view = 'bundle_detail'" class="mb-4 text-sm text-gray-400">&larr; Back</button>
+            <div class="flex items-start gap-4 mb-6">
+                 <img :src="getPosterUrl(currentSeries.poster_path)" class="w-24 rounded-lg shadow-lg">
+                 <div>
+                     <h2 class="text-xl font-bold leading-tight">{{ currentSeries.name }}</h2>
+                     <p class="text-xs text-gray-400 mt-2 line-clamp-3">{{ currentSeries.overview }}</p>
+                 </div>
+            </div>
+
+            <div v-for="ep in episodeList" :key="ep._id" class="flex items-center justify-between bg-gray-800 p-3 rounded mb-2 hover:bg-gray-700">
+                <div>
+                    <div class="text-sm font-bold">S{{ String(ep.season_number).padStart(2, '0') }}E{{ String(ep.episode_number).padStart(2, '0') }}</div>
+                    <div class="text-xs text-gray-400">{{ ep.name }}</div>
+                </div>
+                <button @click="playVideo(ep)" class="bg-red-600 p-2 rounded-full text-white">
+                    ▶
+                </button>
+            </div>
+        </div>
+
+        <!-- PLAYER OVERLAY -->
+        <div v-if="playerVisible" class="fixed inset-0 bg-black z-50 flex items-center justify-center">
+            <button @click="closePlayer" class="absolute top-4 right-4 text-white text-2xl z-50">✕</button>
+            <video
+                ref="videoPlayer"
+                controls
+                autoplay
+                class="w-full max-h-screen"
+                @timeupdate="onTimeUpdate"
+            >
+                <source :src="streamUrl" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+        const tg = window.Telegram.WebApp;
+
+        createApp({
+            data() {
+                return {
+                    view: 'home',
+                    user: tg.initDataUnsafe?.user,
+                    bundles: [],
+                    currentBundle: null,
+                    seriesList: [],
+                    currentSeries: null,
+                    episodeList: [],
+                    continueWatching: [],
+
+                    searchQuery: '',
+                    searchResults: [],
+
+                    playerVisible: false,
+                    streamUrl: '',
+                    currentEpisodeId: null,
+                    lastUpdate: 0
+                }
+            },
+            async mounted() {
+                tg.expand();
+                await this.fetchBundles();
+                if(this.user) {
+                    await this.fetchContinueWatching();
+                }
+            },
+            methods: {
+                async fetchBundles() {
+                    const res = await fetch('/webapp/bundles');
+                    this.bundles = await res.json();
+                },
+                async fetchContinueWatching() {
+                    if(!this.user) return;
+                    const res = await fetch(`/webapp/continue-watching/${this.user.id}`);
+                    this.continueWatching = await res.json();
+                },
+                async performSearch() {
+                    if(this.searchQuery.length < 2) return;
+                    const res = await fetch(`/webapp/search?q=${encodeURIComponent(this.searchQuery)}`);
+                    this.searchResults = await res.json();
+                },
+                async openBundle(bundle) {
+                    this.currentBundle = bundle;
+                    const res = await fetch(`/webapp/series/${bundle._id}`);
+                    this.seriesList = await res.json();
+                    this.view = 'bundle_detail';
+                },
+                async openSeries(series) {
+                    this.currentSeries = series;
+                    const res = await fetch(`/webapp/episodes/${series._id}`);
+                    this.episodeList = await res.json();
+                    this.view = 'series_detail';
+                },
+                playVideo(episode, startTime = 0) {
+                    this.currentEpisodeId = episode._id;
+                    this.streamUrl = `/webapp/stream/${episode.file_id}`;
+                    this.playerVisible = true;
+
+                    this.$nextTick(() => {
+                        if(this.$refs.videoPlayer && startTime > 0) {
+                             const player = this.$refs.videoPlayer;
+                             player.addEventListener('loadedmetadata', () => {
+                                 // Simple resume logic assuming progress is 0.0-1.0
+                                 player.currentTime = startTime * player.duration;
+                             }, {once: true});
+                        }
+                    });
+                },
+                onTimeUpdate(e) {
+                    const player = e.target;
+                    const now = Date.now();
+                    // Throttle updates: every 10 seconds
+                    if (now - this.lastUpdate > 10000 && this.currentEpisodeId && this.user) {
+                        this.lastUpdate = now;
+                        const progress = player.currentTime / player.duration;
+
+                        // Send to backend
+                        fetch('/webapp/progress', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                user_id: this.user.id,
+                                episode_id: this.currentEpisodeId,
+                                progress: progress
+                            })
+                        });
+                    }
+                },
+                closePlayer() {
+                    this.playerVisible = false;
+                    this.streamUrl = '';
+                    this.currentEpisodeId = null;
+                    if(this.$refs.videoPlayer) {
+                        this.$refs.videoPlayer.pause();
+                        this.$refs.videoPlayer.src = "";
+                        this.$refs.videoPlayer.load();
+                    }
+                    // Refresh home
+                    this.fetchContinueWatching();
+                },
+                getPosterUrl(path) {
+                    return path ? `https://image.tmdb.org/t/p/w200${path}` : 'https://via.placeholder.com/200x300?text=No+Poster';
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

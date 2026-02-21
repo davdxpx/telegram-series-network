@@ -1,34 +1,35 @@
-version: '3.8'
-
 services:
   bot:
     build: .
     container_name: tsn_bot
-    restart: unless-stopped
+    restart: always
     env_file:
       - .env
+    ports:
+      - "8000:8000" # Expose FastAPI WebApp
     depends_on:
       - mongo
       - redis
-    ports:
-      - "8000:8000" # Expose FastAPI port
     volumes:
-      - ./app:/app/app
-      - ./bot.log:/app/bot.log
+      - .:/app
+    command: python -m app.main
 
   mongo:
     image: mongo:latest
     container_name: tsn_mongo
-    restart: unless-stopped
+    restart: always
+    environment:
+      MONGO_INITDB_DATABASE: tsn_bot
     ports:
-      - "27017:27017" # Exposed for local tool access if needed
+      - "27017:27017"
     volumes:
       - mongo_data:/data/db
+      - ./docker/mongodb-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
 
   redis:
     image: redis:alpine
     container_name: tsn_redis
-    restart: unless-stopped
+    restart: always
     ports:
       - "6379:6379"
     volumes:

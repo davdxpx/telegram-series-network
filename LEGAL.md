@@ -1,23 +1,34 @@
 # Legal Disclaimer
 
-**Telegram Series Network (TSN)** is a self-hosted software tool designed for personal media management.
+**Last Updated: October 2023**
 
-## 1. Scope of Use
-This software is intended **solely** for the management and playback of media content that the user **legally owns**. This includes:
-*   Personal home videos.
-*   Digital backups of physically purchased media (e.g., Blu-ray/DVD rips) made for personal archival purposes, where permitted by local law.
-*   Royalty-free or Creative Commons licensed content.
+## 1. Introduction
+The **Telegram Series Network (TSN Bot)** is an open-source software project designed for **personal media organization and private streaming**. Ideally, it serves as a self-hosted "home media server" similar to Plex, Jellyfin, or Emby, but integrated into the Telegram ecosystem.
 
-## 2. No Piracy
-*   **TSN Bot does NOT** provide access to any copyrighted content.
-*   **TSN Bot does NOT** contain any features to scrape, download, or retrieve content from illegal sources.
-*   **TSN Bot does NOT** bypass DRM (Digital Rights Management) protection.
-*   The user is entirely responsible for the content they upload and share within their private networks.
+## 2. Permitted Use
+This software is intended strictly for use with content that the user **legally owns or has the right to distribute** within a private circle. Examples of permitted content include:
+*   Personal home videos (weddings, birthdays, vlogs).
+*   Public domain movies and series.
+*   Digital backups of physical media (DVDs/Blu-rays) owned by the user, where local laws permit such backups for personal use.
+*   Creative Commons licensed content.
 
-## 3. Liability
-The developers of Telegram Series Network accept **no liability** for:
-*   Misuse of this software for copyright infringement.
-*   Data loss or corruption.
-*   Bans or restrictions imposed by Telegram or other third-party services due to violations of their Terms of Service.
+## 3. Prohibited Use
+**You may NOT use this software to:**
+*   Distribute copyrighted material without authorization (piracy).
+*   Run a public file-sharing service or "warez" channel.
+*   Profit from the distribution of content you do not own.
+*   Bypass DRM (Digital Rights Management) protections in jurisdictions where this is illegal.
 
-**By using this software, you agree to comply with all applicable local and international copyright laws.**
+## 4. No Liability
+The developers, contributors, and maintainers of the Telegram Series Network repository:
+*   **Do not host any content.** The software is code only.
+*   **Do not control how users deploy the software.**
+*   **Are not responsible for the actions of users.**
+
+If you use this software to infringe upon copyright, you are solely responsible for any legal consequences. The developers explicitly disclaim any liability for damages, lawsuits, or criminal charges arising from the misuse of this tool.
+
+## 5. Hosting & Data
+When you deploy this bot, **you are the data controller**. You are responsible for ensuring your instance complies with all applicable laws in your jurisdiction (e.g., GDPR, DMCA).
+
+## 6. Agreement
+By downloading, forking, installing, or using this software, you acknowledge that you have read this disclaimer and agree to use the software in full compliance with all applicable laws and regulations.
